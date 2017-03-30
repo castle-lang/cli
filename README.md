@@ -10,27 +10,27 @@ sudo npm i -g castle-cli
 
 ## Usage
 
-### Create new project
-
 ```bash
-castle new my_project
-```
+Castle CLI  0.2.2
 
-The above command will create `my_project` directory with the following structure:
+Usage: castle [<command>] [options]
 
-```
-my_project/
-├── package.json
-└── src/
-    ├── c/
-    ├── castle/
-    └── js/
-```
+Commands:
+  new           Create new Castle project
+  build         Compile Castle to C, and the build C project with make
+  build-castle  Compile Castle to C
+  build-target  Compile C sources
+  help          Show this screen
 
-### Build the project
-
-```bash
-castle build        # the whole project
-castle build-castle # compile castle to c
-castle build-target # compile c sources with cmake
+Options:
+  --version           Show version number                              [boolean]
+  -s, --src-dir       source files directory                            [string]
+  -t, --target-dir    target directory                                  [string]
+  -b, --build-dir     build directory                                   [string]
+  -r, --root-dir      project root directory                            [string]
+  -m, --mode          compilation mode (debug or release)               [string]
+  -c, --c-build-tool  what to use for compiling C sources
+                                                      [string] [choices: "make"]
+  -n, --no-syntax     turns off sweet.js macros                        [boolean]
+  -B, --build-script  use build script                                  [string]
 ```
