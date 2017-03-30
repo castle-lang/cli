@@ -21,7 +21,6 @@
     "castle": "bin/castle"
   },
   "dependencies": {
-    "castle-core": "^0.1.7",
     "colors": "^1.1.2",
     "sweet.js": "^2.2.1",
     "typescript": "^2.1.5",
