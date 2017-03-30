@@ -68,6 +68,8 @@ const yargs = require('yargs')
         }
     });
 
+yargs.help();
+
 const argv = yargs.argv;
 const command = argv._[0] || 'help';
 
@@ -115,7 +117,8 @@ switch (command) {
         buildTarget();
         break;
     default:
-        console.error(`ERROR: Unknown command '${command}'`);
+        yargs.showHelp();
+        error(`Unknown command '${command}'`);
         process.exit(1);
 }
 
