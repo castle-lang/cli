@@ -1,0 +1,251 @@
+#!/usr/bin/env node
+
+const {transpile, copyFile, info, warn, error} = require('../utils');
+const colors = require('colors');
+const {exec, execSync} = require('child_process');
+const glob = require('glob');
+const fs = require('node-fs');
+const path = require('path');
+const version = require('../package').version;
+
+const yargs = require('yargs')
+    .usage(`Castle CLI  ${version} \n\nUsage: $0 [<command>] [options]`)
+    .version(() => version)
+    .command('new', 'Create new Castle project')
+    .command('build', 'Compile Castle to C, and the build C project with CMake')
+    .command('build-castle', 'Compile Castle to C')
+    .command('build-target', 'Compile C sources')
+    .command('help', 'Show this screen')
+    .options({
+        's': {
+            alias: 'src-dir',
+            demand: false,
+            describe: 'source files directory',
+            type: 'string',
+        },
+        't': {
+            alias: 'target-dir',
+            demand: false,
+            describe: 'target directory',
+            type: 'string',
+        },
+        'b': {
+            alias: 'build-dir',
+            demand: false,
+            describe: 'build directory',
+            type: 'string',
+        },
+        'r': {
+            alias: 'root-dir',
+            demand: false,
+            describe: 'project root directory',
+            type: 'string',
+        },
+        'm': {
+            alias: 'mode',
+            demand: false,
+            describe: 'compilation mode (debug or release)',
+            type: 'string',
+        },
+        'c': {
+            alias: 'c-build-tool',
+            demand: false,
+            describe: 'what to use for compiling C sources',
+            type: 'string',
+            choices: ['cmake', 'qmake'],
+        },
+        'n': {
+            alias: 'no-syntax',
+            demand: false,
+            describe: 'turns off sweet.js macros',
+            type: 'boolean',
+        },
+        'B': {
+            alias: 'build-script',
+            demand: false,
+            describe: 'use build script',
+            type: 'string',
+        }
+    });
+
+const argv = yargs.argv;
+const command = argv._[0] || 'help';
+
+const options = {
+    s: argv.s || 'src',
+    t: argv.t || 'target',
+    b: argv.b || 'build',
+    m: argv.m || 'debug',
+    c: argv.c || 'cmake',
+    n: argv.n || false,
+    B: argv.B || null,
+    r: argv.r || process.cwd(),
+};
+
+switch (command) {
+    case 'help':
+        yargs.showHelp();
+        break;
+    case 'new':
+        createProject();
+        break;
+    case 'build':
+        buildCastle();
+        buildTarget();
+        break;
+    case 'build-castle':
+        buildCastle();
+        break;
+    case 'build-target':
+        buildTarget();
+        break;
+    default:
+        console.error(`ERROR: Unknown command '${command}'`);
+        process.exit(1);
+}
+
+function createProject() {
+    console.log(``);
+    if (argv._.length < 2) {
+        error('Project name is not specified');
+    }
+    const projectName = argv._[1];
+
+    if (fs.existsSync(projectName)) {
+        error(`Directory ${projectName} already exists`);
+    }
+
+    info('Creating project directory');
+    fs.mkdirSync(projectName);
+
+    const json = JSON.stringify({
+        "name": projectName,
+        "version": "0.1.0",
+    });
+
+    info('Creating \'package.json\' file');
+    fs.writeFileSync(path.join(projectName, 'package.json'), json);
+
+    if (options.n) {
+        info('Installing \'castle-core\' npm package');
+        execSync(
+            `cd ${projectName} && npm i --save-dev castle-core@^0.2.0`,
+            {stdio:[0,1,2]}
+        );
+    } else {
+        info('Installing \'castle-core\' and \'castle-syntax\' npm packages');
+        execSync(
+            `cd ${projectName} && npm i --save-dev castle-core@^0.2.0 castle-syntax@^0.2.0`,
+            {stdio:[0,1,2]}
+        );
+    }
+    
+    info(`Creating sources directry '${options.s}'`);
+    fs.mkdirSync(path.join(projectName, options.s, 'castle'),   0777,   true);
+    fs.mkdirSync(path.join(projectName, options.s, 'js'),       0777,   true);
+    fs.mkdirSync(path.join(projectName, options.s, 'c'),        0777,   true);
+    info(`Creating target directory '${options.t}'`);
+    fs.mkdirSync(path.join(projectName, options.t, 'js'),       0777,   true);
+    fs.mkdirSync(path.join(projectName, options.t, 'c'),        0777,   true);
+    info(`Creating build directory '${options.b}'`);
+    fs.mkdirSync(path.join(projectName, options.b),             0777,   true);
+
+    if (options.c === 'cmake') {
+        info('Creating \'CMakeLists.txt\' file');
+        fs.writeFileSync(path.join(projectName, options.t, 'c', 'CMakeLists.txt'));
+    } else if (options.c === 'qmake') {
+        error('qmake is not supported yet');
+    }
+}
+
+
+function buildCastle() {
+    info('Starting project build');
+    if (!options.n) {
+        info('Compiling *.cst to *.js');
+        expandMacros();
+    }
+
+    // const files = glob.sync('**/*.js', { cwd: path.join(process.cwd(), 'src', 'js') });
+    // const context = new castle.Context();
+    // for (let file of files) {
+    //     const dirname = path.join('src', 'c', path.dirname(file));
+    //     const full = path.resolve(path.join('src', 'js', file));
+    //     const out = path.join('src', 'c', path.basename(file, '.js'));
+    //     if (!fs.existsSync(dirname)) {
+    //         fs.mkdirSync(dirname, 0777, true);
+    //     }
+    //     fs.writeFileSync(out, require(full).default.compile(context));
+    // }
+    
+    info('Copying *.c and *.js files');
+    copyJsToTarget();
+    copyCToTarget();
+
+    info('Generating C sources');
+    generateTargetCode();
+}
+
+function expandMacros() {
+    const files = glob.sync('**/*', { cwd: path.join(options.r, options.s, 'castle') });
+    for (let file of files) {
+        const fullName = path.join(options.r, options.s, 'castle', file);
+        const outDir = path.join(options.r, options.t, 'js', path.dirname(file))
+        const outName = path.join(outDir, path.basename(file, '.cst') + '.js');
+        if (!fs.existsSync(outDir)) {
+            info(`Creating '${outDir}' directory`);
+            fs.mkdirSync(dirname, 0777, true);
+        }
+        info('Expanding Sweet.js macros');
+        execSync(`./node_modules/.bin/sjs ${fullName} -o ${outName}`);
+        const ts = fs.readFileSync(outName);
+        info('Compiling TypeScript to JavaScript');
+        fs.writeFileSync(outName, transpile(ts.toString()));
+    }
+}
+
+function copyJsToTarget() {
+    const files = glob.sync('**/*.js', { cwd: path.join(options.r, options.s, 'js') });
+    for (let file of files) {
+        const fullName = path.join(options.r, options.s, 'js', file);
+        const outDir = path.join(options.r, options.t, 'js', path.dirname(file));
+        const outName = path.join(outDir, path.basename(file));
+        if (!fs.existsSync(outDir)) {
+            info(`Creating '${outDir}' directory`);
+            fs.mkdirSync(dirname, 0777, true);
+        }
+        console.log(fullName, outDir, outName);
+        copyFile(fullName, outName);
+    }
+}
+
+
+function copyCToTarget() {
+    const files = glob.sync('**/*', { cwd: path.join(options.r, options.s, 'c') });
+    for (let file of files) {
+        const fullName = path.join(options.r, options.s, 'c', file);
+        const outDir = path.join(options.r, options.t, 'c', path.dirname(file));
+        const outName = path.join(outDir, path.basename(file));
+        if (!fs.existsSync(outDir)) {
+            info(`Creating '${outDir}' directory`);
+            fs.mkdirSync(dirname, 0777, true);
+        }
+        copyFile(fullName, outName);
+    }
+}
+
+function generateTargetCode() {
+    const castle = require(path.join(options.r, '/node_modules/castle-core'));
+    const files = glob.sync('**/*', { cwd: path.join(options.r, options.t, 'js') });
+    for (let file of files) {
+        const fullName = path.join(options.r, options.t, 'js', file);
+        const outDir = path.join(options.r, options.t, 'c', path.dirname(file));
+        const outName = path.join(outDir, path.basename(file, '.js'));
+        if (!fs.existsSync(outDir)) {
+            info(`Creating '${outDir}' directory`);
+            fs.mkdirSync(dirname, 0777, true);
+        }
+        const out = require(fullName).compile(new castle.Context());
+        fs.writeFileSync(outName, out);
+    }
+}

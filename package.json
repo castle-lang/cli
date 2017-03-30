@@ -1,0 +1,30 @@
+{
+  "name": "castle-cli",
+  "version": "0.2.0",
+  "description": "CLI interface for Castle eDSL",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/castle-lang/cli.git"
+  },
+  "keywords": [
+    "castle",
+    "codegen",
+    "edsl"
+  ],
+  "author": "Daniil Kolesnichenko <d.s.kolesnichenko@yandex.ru>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/castle-lang/cli/issues"
+  },
+  "homepage": "https://castle-lang.github.io",
+  "bin": {
+    "castle": "bin/castle"
+  },
+  "dependencies": {
+    "castle-core": "^0.1.7",
+    "colors": "^1.1.2",
+    "sweet.js": "^2.2.1",
+    "typescript": "^2.1.5",
+    "yargs": "^6.6.0"
+  }
+}
