@@ -1,6 +1,6 @@
 # Castle CLI
 
-A comman-line Castle projects build tool
+A command-line Castle projects build tool
 
 ## Installation
 
