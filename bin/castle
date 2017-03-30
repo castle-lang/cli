@@ -12,7 +12,7 @@ const yargs = require('yargs')
     .usage(`Castle CLI  ${version} \n\nUsage: $0 [<command>] [options]`)
     .version(() => version)
     .command('new', 'Create new Castle project')
-    .command('build', 'Compile Castle to C, and the build C project with CMake')
+    .command('build', 'Compile Castle to C, and the build C project with make')
     .command('build-castle', 'Compile Castle to C')
     .command('build-target', 'Compile C sources')
     .command('help', 'Show this screen')
@@ -52,7 +52,7 @@ const yargs = require('yargs')
             demand: false,
             describe: 'what to use for compiling C sources',
             type: 'string',
-            choices: ['cmake', 'qmake'],
+            choices: ['make'],
         },
         'n': {
             alias: 'no-syntax',
@@ -76,11 +76,26 @@ const options = {
     t: argv.t || 'target',
     b: argv.b || 'build',
     m: argv.m || 'debug',
-    c: argv.c || 'cmake',
+    c: argv.c || 'make',
     n: argv.n || false,
     B: argv.B || null,
     r: argv.r || process.cwd(),
 };
+
+const makefile = `
+.PHONY : all clean
+
+all: $(patsubst src/%.c,bin/%,$(wildcard src/*.c))
+
+bin/%.o: src/%.c
+	clang -g -Wall -Werror -std=c11 -c $? -o $@
+
+bin/%:  bin/%.o
+	clang -g $? -o $@ -L/usr/lib/x86_64-linux-gnu -lm
+
+clean:
+	find bin/ -type f -exec rm {} \;
+`;
 
 switch (command) {
     case 'help':
@@ -148,42 +163,44 @@ function createProject() {
     fs.mkdirSync(path.join(projectName, options.t, 'js'),       0777,   true);
     fs.mkdirSync(path.join(projectName, options.t, 'c'),        0777,   true);
     info(`Creating build directory '${options.b}'`);
-    fs.mkdirSync(path.join(projectName, options.b),             0777,   true);
+    fs.mkdirSync(path.join(projectName, options.b, 'src'),      0777,   true);
+    fs.mkdirSync(path.join(projectName, options.b, 'bin'),      0777,   true);
 
-    if (options.c === 'cmake') {
-        info('Creating \'CMakeLists.txt\' file');
-        fs.writeFileSync(path.join(projectName, options.t, 'c', 'CMakeLists.txt'));
-    } else if (options.c === 'qmake') {
-        error('qmake is not supported yet');
+    if (options.c === 'make') {
+        info('Creating Makefile');
+        fs.writeFileSync(path.join(projectName, options.b, 'Makefile'), makefile);
     }
 }
 
 
 function buildCastle() {
     info('Starting project build');
+    
+    info('Cleaning previous build');
+    clearJs();
+    clearC();
+
     if (!options.n) {
         info('Compiling *.cst to *.js');
         expandMacros();
     }
 
-    // const files = glob.sync('**/*.js', { cwd: path.join(process.cwd(), 'src', 'js') });
-    // const context = new castle.Context();
-    // for (let file of files) {
-    //     const dirname = path.join('src', 'c', path.dirname(file));
-    //     const full = path.resolve(path.join('src', 'js', file));
-    //     const out = path.join('src', 'c', path.basename(file, '.js'));
-    //     if (!fs.existsSync(dirname)) {
-    //         fs.mkdirSync(dirname, 0777, true);
-    //     }
-    //     fs.writeFileSync(out, require(full).default.compile(context));
-    // }
-    
     info('Copying *.c and *.js files');
     copyJsToTarget();
     copyCToTarget();
 
     info('Generating C sources');
     generateTargetCode();
+}
+
+function clearJs() {
+    const outDir = path.join(options.r, options.t, 'js');
+    execSync(`cd ${outDir} && rm -rf **/*.js`);
+}
+
+function clearC() {
+    const outDir = path.join(options.r, options.t, 'c');
+    execSync(`cd ${outDir} && rm -rf **/*.c`);
 }
 
 function expandMacros() {
@@ -250,4 +267,12 @@ function generateTargetCode() {
         const out = m.compile(new castle.Context());
         fs.writeFileSync(outName, out);
     }
+}
+
+function buildTarget() {
+    execSync(`rm -rf ${options.b}/{src,bin}/**/*`);
+    const cps = `${path.join(options.r, options.t, 'c')}/*`;
+    execSync(`if [ -e ${cps} ]; then cp -r ${cps} ${options.b}/src/; fi`);
+    info('Compiling C sources');
+    execSync(`cd ${options.b} && make`);
 }
