@@ -11,7 +11,7 @@ sudo npm i -g castle-cli
 ## Usage
 
 ```
-Castle CLI  0.2.2
+Castle CLI  0.2.3
 
 Usage: castle [<command>] [options]
 
