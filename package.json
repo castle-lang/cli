@@ -1,6 +1,6 @@
 {
   "name": "castle-cli",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "CLI interface for Castle eDSL",
   "repository": {
     "type": "git",
@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "colors": "^1.1.2",
+    "node-fs": "^0.1.7",
     "sweet.js": "^2.2.1",
     "typescript": "^2.1.5",
     "yargs": "^6.6.0"
