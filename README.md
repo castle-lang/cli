@@ -10,7 +10,7 @@ sudo npm i -g castle-cli
 
 ## Usage
 
-```bash
+```
 Castle CLI  0.2.2
 
 Usage: castle [<command>] [options]
