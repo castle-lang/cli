@@ -199,6 +199,9 @@ function buildCastle() {
 function clearJs() {
     const outDir = path.join(options.r, options.t, 'js');
     execSync(`cd ${outDir} && rm -rf **/*.js`);
+    
+    const buildDir = path.join(options.r, options.b);
+    execSync(`cd ${buildDir} && rm -rf **/*.c`);
 }
 
 function clearC() {
@@ -274,8 +277,8 @@ function generateTargetCode() {
 
 function buildTarget() {
     execSync(`rm -rf ${options.b}/{src,bin}/**/*`);
-    const cps = `${path.join(options.r, options.t, 'c')}/*`;
-    execSync(`if [ -e ${cps} ]; then cp -r ${cps} ${options.b}/src/; fi`);
+    const cps = path.join(options.r, options.t, 'c');
+    execSync(`find ${cps} -exec cp -r {} ${path.join(options.b, 'src')}/ \\;`)
     info('Compiling C sources');
     execSync(`cd ${options.b} && make`);
 }
