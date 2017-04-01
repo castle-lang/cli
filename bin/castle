@@ -237,7 +237,6 @@ function copyJsToTarget() {
             info(`Creating '${outDir}' directory`);
             fs.mkdirSync(dirname, 0777, true);
         }
-        console.log(fullName, outDir, outName);
         copyFile(fullName, outName);
     }
 }
